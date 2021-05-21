@@ -22,8 +22,23 @@ Maskman.add_type :plain do
   end
 end
 
-Maskman.add_type :simple do
-  add :Dummy
+Maskman.add_type :exactipaddress do
+  add :Regexp do
+    pattern "\b#{Resolv::IPv4::Regex}\b"
+    to 'XXX.XXX.XXX.XXX'
+  end
+  add :Regexp do
+    pattern "\b#{Resolv::IPv4::Regex}/#{Resolv::IPv4::Regex}\b"
+    to 'XXX.XXX.XXX.XXX/XXXX.XXXX.XXXX.XXXX'
+  end
+  add :Regexp do
+    pattern "\b#{Resolv::IPv4::Regex}/\d{1,2}\b"
+    to 'XXX.XXX.XXX.XXX/XX'
+  end
+  add :Regexp do
+    pattern "\b#{Resolv::IPv6::Regex}\b"
+    to 'xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx'
+  end
 end
 
 Maskman.add_type :common do

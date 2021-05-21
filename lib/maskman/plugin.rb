@@ -108,8 +108,9 @@ module Maskman
   end
 end
 
+require 'ipaddr'
 module Maskman
-  class IpAddressPlugin
+  class ExactIpv4AddressPlugin
     def mask(text)
       text.gsub(%r'(?<b>[^d])\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?<a>[^\d])', '\k<b>XXX.XXX.XXX.XXX\k<a>')
     end
