@@ -12,7 +12,7 @@ module Maskman
     method_option :type, :default => "common"
     def mask(srcfilename, dstfilename=nil)
       text = File.read(srcfilename)
-      
+
       result = Maskman.new.mask(text, type: options[:type].to_sym)
 
       if dstfilename.nil?
@@ -40,6 +40,10 @@ module Maskman
       instance.instance_eval(&block)
       @plugins << instance
     end
+  end
+
+  def self.clear_mask_types
+    @mask_types = {}
   end
 
   def self.mask_types
@@ -70,4 +74,7 @@ module Maskman
   end
 end
 
-require 'maskman/config'
+Dir[File.dirname(__FILE__) + '/../rules/*.rb'].each {|file|
+  pp file
+  require file
+}

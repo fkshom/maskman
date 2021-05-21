@@ -1,7 +1,13 @@
 require 'maskman'
 
 module Maskman
-  class PlainPlugin
+  class PluginBase
+    def mask(text)
+      raise "Must be implemented in subclass"
+    end
+  end
+
+  class PlainTextPlugin < PluginBase
     def initialize(**kwargs)
       @patterns = []
       @to = ""
@@ -11,28 +17,24 @@ module Maskman
       }
     end
 
-    def patterns(val)
-      pattern(val)
-    end
-
     def pattern(val)
       case val
       when Array
         @patterns += val
-      when String
+      when String, Regexp, Integer
         @patterns << val
-      when Regexp
-        @pattern << val
       else
-        raise "pattern claaa #{val.class} is not supported"
+        raise "pattern class #{val.class} is not supported"
       end
       self
     end
 
+    alias :patterns :pattern
+
     def to(val)
       @to = val
     end
-    
+
     def mask(text)
       @patterns.each{|pattern|
         text = text.gsub(pattern, @to)
@@ -41,44 +43,13 @@ module Maskman
     end
   end
   
-  class RegexpPlugin
-    def initialize(**kwargs)
-      @patterns = []
-      @to = ""
-      
-      kwargs.each{|k, v|
-        self.send(k, v)
-      }
-    end
-    
+  class RegexpPlugin < PlainTextPlugin
     def ignore_case(val)
       @ignore_case = val
     end
 
     def space_has_any_length(val)
       @space_has_any_length = val
-    end
-
-    def patterns(val)
-      pattern(val)
-    end
-
-    def pattern(val)
-      case val
-      when Array
-        @patterns += val
-      when String
-        @patterns << val
-      when Regexp
-        @pattern << val
-      else
-        raise "pattern claaa #{val.class} is not supported"
-      end
-      self
-    end
-
-    def to(val)
-      @to = val
     end
     
     def mask(text)
@@ -93,18 +64,18 @@ module Maskman
     end
   end
 
-  class RegexpIncrementalPlugin
-    attr_accessor :on_matched
+  class RegexpIncrementalPlugin < RegexpPlugin
     def initialize(**kwargs)
-      @patterns = []
-      @patterns += kwargs[:patterns] if kwargs.has_key?(:patterns)
-      @patterns << kwargs[:pattern] if kwargs.has_key?(:pattern)
-      @to = kwargs[:to]
-      @ignore_case = kwargs[:ignore_case]
-      @space_has_any_length = kwargs[:space_has_any_length]
-      @incremental_suffix_target = kwargs[:incremental_suffix_target]
+      super(**kwargs)
       @target_texts = []
-      @on_matched = nil
+    end
+
+    def incremental_suffix_target(val)
+      @incremental_suffix_target = val.to_sym
+    end
+
+    def on_matched(proc)
+      @on_matched = proc
     end
 
     def get_id(text)

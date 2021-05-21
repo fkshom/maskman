@@ -1,6 +1,11 @@
 # frozen_string_literal: true
+require 'maskman'
 
 RSpec.describe Maskman do
+  before(:all) do
+    Maskman.clear_mask_types
+  end
+
   it "mask" do
     text = <<~EOS
     address 192.168.0.1 is ok
@@ -8,13 +13,17 @@ RSpec.describe Maskman do
     expect = <<~EOS
     address XXX.XXX.XXX.XXX is ok
     EOS
+
+    Maskman.add_type :common do
+      add :Regexp do
+        pattern '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+        to 'XXX.XXX.XXX.XXX'
+        ignore_case false
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-      to: "XXX.XXX.XXX.XXX",
-      ignore_case: false,
-    )
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
 
@@ -25,13 +34,17 @@ RSpec.describe Maskman do
     expect = <<~EOS
     this address is 192.168.0.1 desu.
     EOS
+    
+    Maskman.add_type :common do
+      add :Regexp do
+        pattern 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok'
+        to 'this address is \k<ipaddr> desu.'
+        ignore_case false
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok',
-      to: 'this address is \k<ipaddr> desu.',
-      ignore_case: false,
-    )
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
 
@@ -44,20 +57,24 @@ RSpec.describe Maskman do
     ipaddr: XXX.XXX.XXX.XXX
     netmask: XXX.XXX.XXX.XXX
     EOS
+
+    Maskman.add_type :common do
+      add :Regexp do
+        pattern 'ipaddr: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+        to 'ipaddr: XXX.XXX.XXX.XXX'
+        space_has_any_length true
+        ignore_case false
+      end
+      add :Regexp do
+        pattern 'netmask: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+        to 'netmask: XXX.XXX.XXX.XXX'
+        space_has_any_length true
+        ignore_case false
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: 'ipaddr: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-      to: 'ipaddr: XXX.XXX.XXX.XXX',
-      space_has_any_length: true,
-      ignore_case: false,
-    )
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: 'netmask: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-      to: 'netmask: XXX.XXX.XXX.XXX',
-      space_has_any_length: true,
-      ignore_case: false,
-    )
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
 
@@ -74,23 +91,27 @@ RSpec.describe Maskman do
     Actor: YYYYYYY
     Designer: John Doe
     EOS
+
+    Maskman.add_type :common do
+      add :Regexp do
+        patterns ["ProjectX", "John Smith"]
+        to "XXXXXXXX"
+        ignore_case true
+      end
+      add :Regexp do
+        patterns ["Jane Smith"]
+        to "YYYYYYY"
+        ignore_case true
+      end
+      add :Regexp do
+        patterns ["john doe"]
+        to "ZZZZ"
+        ignore_case false
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      patterns: ["ProjectX", "John Smith"],
-      to: "XXXXXXXX",
-      ignore_case: true,
-    )
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      patterns: ["Jane Smith"],
-      to: "YYYYYYY",
-      ignore_case: true,
-    )
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      patterns: ["john doe"],
-      to: "ZZZZ",
-      ignore_case: false,
-    )
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
   
@@ -109,18 +130,22 @@ RSpec.describe Maskman do
       }
     }
     EOS
+
+    Maskman.add_type :common do
+      add :Regexp do
+        pattern 'filter .+ {'
+        to 'filter FILTERNAME {'
+        ignore_case false
+      end
+      add :Regexp do
+        pattern 'term .+ {'
+        to 'term TERMNAME {'
+        ignore_case false
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: 'filter .+ {',
-      to: 'filter FILTERNAME {',
-      ignore_case: false,
-    )
-    maskman.add_plugin Maskman::RegexpPlugin.new(
-      pattern: 'term .+ {',
-      to: 'term TERMNAME {',
-      ignore_case: false,
-    )
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
 
@@ -137,17 +162,23 @@ RSpec.describe Maskman do
     filter FILTERNAME3 {
     use FILTERNAME1
     EOS
+    
+    Maskman.add_type :common do
+      add :RegexpIncremental do
+        patterns [
+          '(?<pre>filter )(?<filtername>\w+)(?<post>.*)',
+          '(?<pre>use )(?<filtername>\w+)(?<post>.*)'
+        ]
+        ignore_case false
+        incremental_suffix_target 'filtername'
+        on_matched ->(m, inc){
+          "#{m[:pre]}FILTERNAME#{inc}#{m[:post]}"
+        }
+      end
+    end
+
     maskman = Maskman::Maskman.new
-    regexpincrementalplugin = Maskman::RegexpIncrementalPlugin.new(
-      patterns: ['(?<pre>filter )(?<filtername>\w+)(?<post>.*)', '(?<pre>use )(?<filtername>\w+)(?<post>.*)'],
-      ignore_case: false,
-      incremental_suffix_target: :filtername,
-    )
-    regexpincrementalplugin.on_matched = ->(m, inc){
-      "#{m[:pre]}FILTERNAME#{inc}#{m[:post]}"
-    }
-    maskman.add_plugin regexpincrementalplugin
-    actual = maskman.start(text)
+    actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
 end

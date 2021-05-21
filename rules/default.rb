@@ -1,7 +1,5 @@
 require 'maskman'
 
-  
-
 Maskman.add_type :ipaddress do
   add :Regexp do
     patterns [
@@ -18,7 +16,7 @@ Maskman.add_type :ipaddress do
 end
 
 Maskman.add_type :plain do
-  add :Plain do
+  add :PlainText do
     patterns ['p@ssw0rd', 's3cr3t']
     to 'YYYY'
   end
