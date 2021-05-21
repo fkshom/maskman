@@ -106,5 +106,34 @@ module Maskman
       text
     end
   end
+
+  
+  class Regexp2Plugin < RegexpPlugin
+    def ignore_case(val)
+      @ignore_case = val
+    end
+
+    def space_has_any_length(val)
+      @space_has_any_length = val
+    end
+    
+    def on_matched(proc)
+      @on_matched = proc
+    end
+
+    def mask(text)
+      @patterns.each{|pattern|
+        regexpopt = @ignore_case ? Regexp::IGNORECASE : nil
+        text = text.gsub(Regexp.new(pattern, regexpopt)){|_|
+          m = Regexp.last_match
+          substring = m[0]
+          mm = Regexp.new(pattern).match(substring)
+          replace = @on_matched.call(substring, mm)
+          replace
+        }
+      }
+      text
+    end
+  end
 end
 

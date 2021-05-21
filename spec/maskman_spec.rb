@@ -27,6 +27,37 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
 
+  fit "mask" do
+    text = <<~EOS
+    address 192.168.0.1 is ok
+    192.168.1.1 is ng
+    EOS
+    expect = <<~EOS
+    address XXX.XXX.XXX.XXX is ok
+    192.168.1.1 is ng
+    EOS
+
+    Maskman.add_type :common do
+      add :Regexp2 do
+        pattern '(?<pre>address )(?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?<post> is ok)'
+        ignore_case false
+        on_matched ->(substring, m){
+            "#{m[:pre]}XXX.XXX.XXX.XXX#{m[:post]}"
+        }
+      end
+      # add :Regexp3 do
+      #   pattern 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok'
+      #   target :ipaddr
+      #   to 'XXX.XXX.XXX.XXX'
+      #   ignore_case false
+      # end
+    end
+
+    maskman = Maskman::Maskman.new
+    actual = maskman.mask(text, type: :common)
+    expect(actual).to eq expect
+  end
+
   it "mask" do
     text = <<~EOS
     address 192.168.0.1 is ok

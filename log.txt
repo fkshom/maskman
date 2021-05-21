@@ -1,0 +1,22 @@
+abcd
+192.168.1.1
+192.168.1.1/23
+abcd
+
+password: p@ssw0rd
+secret: s3cr3t
+
+firewall {
+    family inet {
+        filter FILTER {
+            term Allow-PC {
+                from source-address 10.1.1.1/32
+                then accept
+            }
+            term Deny-PC {
+                from source-address 10.1.1.1/32
+                then accept
+            }
+        }
+    }
+}
