@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 
 require 'maskman'
-Maskman::CLI.start
+Maskman::CLI.start(ARGV)
