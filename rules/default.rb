@@ -22,6 +22,10 @@ Maskman.add_type :plain do
   end
 end
 
+Maskman.add_type :simple do
+  add :Dummy
+end
+
 Maskman.add_type :common do
   include_type :ipaddress
   include_type :plain

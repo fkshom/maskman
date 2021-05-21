@@ -37,7 +37,7 @@ module Maskman
     def add(pluginname, &block)
       klass = Kernel.const_get("Maskman::" + pluginname.to_s + "Plugin")
       instance = klass.new
-      instance.instance_eval(&block)
+      instance.instance_eval(&block) if block_given?
       @plugins << instance
     end
   end
@@ -53,14 +53,11 @@ module Maskman
   
   def self.add_type(typename, &block)
     t = MaskType.new
-    t.instance_eval(&block)
+    t.instance_eval(&block) if block_given?
     @mask_types[typename] = t
   end
   
   class Maskman
-    def initialize
-    end
-
     def mask(text, type: :all)
       ::Maskman.mask_types[type].plugins.each{|plugin|
         if Symbol === plugin
@@ -75,6 +72,6 @@ module Maskman
 end
 
 Dir[File.dirname(__FILE__) + '/../rules/*.rb'].each {|file|
-  pp file
+  puts "Load configuration file: #{file}"
   require file
 }

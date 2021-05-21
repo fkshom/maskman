@@ -7,6 +7,12 @@ module Maskman
     end
   end
 
+  class DummyPlugin < PluginBase
+    def mask(text)
+      test
+    end
+  end
+
   class PlainTextPlugin < PluginBase
     def initialize(**kwargs)
       @patterns = []
