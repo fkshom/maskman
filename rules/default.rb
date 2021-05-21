@@ -22,6 +22,7 @@ Maskman.add_type :plain do
   end
 end
 
+require 'resolv'
 Maskman.add_type :exactipaddress do
   add :Regexp do
     pattern "\b#{Resolv::IPv4::Regex}\b"
