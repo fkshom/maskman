@@ -2,6 +2,96 @@
 require 'maskman'
 
 RSpec.describe Maskman do
+  describe Maskman::PlainTextPlugin do
+    fit "mask" do
+      text = <<~EOS
+      p@ssw0rd
+      s3cr3t
+      __p@ssw0rd__
+      secret
+      p@ssw0rd s3cr3t
+      EOS
+      expect = <<~EOS
+      XXXX
+      XXXX
+      __XXXX__
+      secret
+      XXXX XXXX
+      EOS
+      
+      inst = Maskman::PlainTextPlugin.new
+      inst.instance_eval do
+        patterns ['p@ssw0rd', 's3cr3t']
+        to 'XXXX'
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+  end
+
+  describe Maskman::RegexpPlugin do
+    it "mask" do
+      text = <<~EOS
+      hostname retail
+      EOS
+      expect = <<~EOS
+      hostname XXXXXX
+      EOS
+      
+      inst = Maskman::RegexpPlugin.new
+      inst.instance_eval do
+        pattern "hostname .+"
+        to 'hostname XXXXXX'
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+
+    fit "mask" do
+      text = <<~EOS
+      enable password cisco123
+      !
+      username jsomeone password 0 cg6#107X
+      !
+      interface FastEthernet1
+        description To Server001
+        ip address 192.168.12.1 255.255.255.0
+      !
+      interface FastEthernet2
+        description To Server002
+        ip address 192.168.12.2 255.255.255.0
+      EOS
+      expect = <<~EOS
+      enable password XXXXXX
+      !
+      username jsomeone password 0 XXXXXX
+      !
+      interface FastEthernet1
+        description XXXXXX
+        ip address 192.168.12.1 255.255.255.0
+      !
+      interface FastEthernet2
+        description XXXXXX
+        ip address 192.168.12.2 255.255.255.0
+      EOS
+      inst = Maskman::Regexp3Plugin.new
+      inst.instance_eval do
+        patterns [
+          '^enable password (?<pass>.+)',
+          '^username [^ ]+ password \d (?<pass>.+)',
+          '^\s+description (?<desc>.+)',
+          '^s+ip (?<ip>[^ ]+) .+', # nop
+        ]
+        targets [:pass, 'desc']
+        to 'XXXXXX'
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+  end
+end
+
+RSpec.describe Maskman do
   before(:all) do
     Maskman.clear_mask_types
   end
@@ -27,7 +117,7 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
 
-  fit "mask" do
+  it "mask" do
     text = <<~EOS
     address 192.168.0.1 is ok
     192.168.1.1 is ng
@@ -211,5 +301,70 @@ RSpec.describe Maskman do
     maskman = Maskman::Maskman.new
     actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
+  end
+
+  it "mask" do
+    text = <<~EOS
+    Router# show running-config
+    Building configuration...
+    Current configuration : 3781 bytes
+    !
+    version 12.3
+    no service pad
+    service timestamps debug datetime msec
+    service timestamps log datetime msec
+    no service password-encryption
+    !
+    hostname retail
+    !
+    enable password cisco123
+    !
+    username jsomeone password 0 cg6#107X
+    aaa new-model
+    !
+    interface FastEthernet1
+      description To Server001
+      ip address 192.168.12.1 255.255.255.0
+    !
+    interface FastEthernet2
+      description To Server002
+      ip address 192.168.12.2 255.255.255.0
+    !
+    user jsomeone nthash 7 0529575803696F2C492143375828267C7A760E1113734624452725707C010B065B
+    user AMER\jsomeone nthash 7 0224550C29232E041C6A5D3C5633305D5D560C09027966167137233026580E0B0D
+    !
+    radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key cisco123
+    EOS
+    expect = <<~EOS
+    Router# show running-config
+    Building configuration...
+    Current configuration : 3781 bytes
+    !
+    version 12.3
+    no service pad
+    service timestamps debug datetime msec
+    service timestamps log datetime msec
+    no service password-encryption
+    !
+    hostname HOSTNAME
+    !
+    enable password XXXXXX
+    !
+    username jsomeone password 0 XXXXXX
+    aaa new-model
+    !
+    interface FastEthernet1
+      description YYYYYY
+      ip address 192.168.12.1 255.255.255.0
+    !
+    interface FastEthernet2
+      description YYYYYY
+      ip address 192.168.12.2 255.255.255.0
+    !
+    user USER nthash 7 ABCDABCD
+    user USER nthash 7 ABCDABCD
+    !
+    radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key KEY
+    EOS
   end
 end

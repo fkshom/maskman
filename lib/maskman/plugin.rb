@@ -135,5 +135,48 @@ module Maskman
       text
     end
   end
+
+  
+  class Regexp3Plugin < RegexpPlugin
+    def targets(val)
+      @targets ||= []
+      case val
+      when Array
+        @targets += val
+      when String, Regexp, Integer
+        @targets << val
+      else
+        raise "target class #{val.class} is not supported"
+      end
+      self
+    end
+
+    def mask(text)
+      @patterns.each{|pattern|
+        text = text.gsub(Regexp.new(pattern)){|_|
+          m = Regexp.last_match
+          substring = m[0]
+          mm = Regexp.new(pattern).match(substring)
+          @targets.each{|target|
+            if mm.names.include?(target.to_s)
+              substring = TextReplacer.replace(substring, mm, target, @to)
+            end
+          }
+          substring
+        }
+      }
+      text
+    end
+  end
+  
+  module TextReplacer
+    def self.replace(text, m, n_or_key, replacer)
+      b = m.begin(n_or_key)
+      e = m.end(n_or_key)
+      text[b..e] = replacer
+      text
+    end
+  end
+
 end
 
