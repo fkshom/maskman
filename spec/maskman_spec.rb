@@ -47,7 +47,7 @@ RSpec.describe Maskman do
       expect(actual).to eq expect
     end
 
-    fit "mask" do
+    it "mask" do
       text = <<~EOS
       enable password cisco123
       !

@@ -168,6 +168,22 @@ module Maskman
       text
     end
   end
+
+  class TextReplacer2
+    def initialize
+      @m = m
+      @substring = m[0]
+    end
+    def replace(n_or_key, replacer)
+      b = @m.begin(n_or_key)
+      e = @m.end(n_or_key)
+      text[b..e] = replacer
+      text
+    end
+    def text
+      @substring
+    end
+  end
   
   module TextReplacer
     def self.replace(text, m, n_or_key, replacer)
