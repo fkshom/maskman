@@ -169,6 +169,35 @@ module Maskman
     end
   end
 
+  class Regexp4Plugin < RegexpPlugin
+    def targets(val)
+      @targets ||= []
+      case val
+      when Array
+        @targets += val
+      when String, Regexp, Integer
+        @targets << val
+      else
+        raise "target class #{val.class} is not supported"
+      end
+      self
+    end
+
+    def on_matched(val)
+      @on_matched = val
+    end
+
+    def mask(text)
+      @patterns.each{|pattern|
+        text = text.gsub(Regexp.new(pattern)){|_|
+          m = Regexp.last_match
+          @on_matched.call(m)
+        }
+      }
+      text
+    end
+  end
+
   class TextReplacer2
     def initialize
       @m = m

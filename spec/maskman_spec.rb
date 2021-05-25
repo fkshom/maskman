@@ -68,6 +68,25 @@ RSpec.describe Maskman do
       expect(actual).to eq expect
     end
 
+    fit "mask4a" do
+      text = <<~EOS
+      hostname retail
+      EOS
+      expect = <<~EOS
+      hostname rXXXXX
+      EOS
+      
+      inst = Maskman::Regexp4Plugin.new
+      inst.instance_eval do
+        pattern "hostname (?<hostname>.+)"
+        on_matched_hostname ->(m){
+          "rXXXXXX"
+        }
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+
     it "mask" do
       text = <<~EOS
       enable password cisco123
