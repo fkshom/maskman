@@ -213,6 +213,70 @@ RSpec.describe Maskman do
       expect(actual).to eq expect
     end
   end
+
+  describe Maskman::Ipv4AddressPlugin do
+    it "IPv4アドレスを置換できる" do
+      text = <<~EOS
+      address 192.168.0.1 is ok
+      address:192.168.0.2
+      address:192.168.0.2/24
+      address:256.256.256.256
+      EOS
+      expect = <<~EOS
+      address XXX.XXX.XXX.XXX is ok
+      address:XXX.XXX.XXX.XXX
+      address:XXX.XXX.XXX.XXX/24
+      address:256.256.256.256
+      EOS
+      
+      inst = Maskman::Ipv4AddressPlugin.new
+      inst.instance_eval do
+        to "XXX.XXX.XXX.XXX"
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+  end
+
+  describe Maskman::Ipv4AddressWithMaskLengthPlugin do
+    it "IPv4アドレスwithマスク長 を置換できる" do
+      text = <<~EOS
+      address 192.168.0.1/24 is ok
+      address:192.168.0.2
+      address:192.168.0.2/24
+      address:256.256.256.256
+      EOS
+      expect = <<~EOS
+      address XXX.XXX.XXX.XXX/XX is ok
+      address:192.168.0.2
+      address:XXX.XXX.XXX.XXX/XX
+      address:256.256.256.256
+      EOS
+      
+      inst = Maskman::Ipv4AddressWithMaskLengthPlugin.new
+      inst.instance_eval do
+        to "XXX.XXX.XXX.XXX/XX"
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+  end
+end
+
+
+RSpec.describe Maskman do
+  # it "test" do
+  #   require 'resolv'
+  #   pp Resolv::IPv4::Regex
+  #   text = "address 192.168.0.1 is ok"
+  #   expect = "address XXX.XXX.XXX.XXX is ok"
+  #   maskman = Maskman::Maskman.new
+  #   actual = maskman.mask(text, type: :exactipaddress)
+  #   pp text
+  #   pp actual
+  #   pp expect
+  #   expect(actual).to eq expect
+  # end
 end
 
 RSpec.describe Maskman do

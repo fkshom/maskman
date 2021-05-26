@@ -7,12 +7,6 @@ module Maskman
     end
   end
 
-  class DummyPlugin < PluginBase
-    def mask(text)
-      test
-    end
-  end
-
   class PlainTextPlugin < PluginBase
     def initialize(**kwargs)
       @patterns = []
@@ -154,7 +148,41 @@ module Maskman
     end
   end
 
-  
+  class Ipv4AddressPlugin < RegexpPlugin
+    def initialize(**kwargs)
+      super(**kwargs)
+      @patterns = [
+        '\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
+      ]
+      @on_matched = ->(m){
+        substring = m[0]
+        if Resolv::IPv4::Regex =~ substring
+          return @to
+        else
+          return substring
+        end
+      }
+    end
+  end
+
+  class Ipv4AddressWithMaskLengthPlugin < RegexpPlugin
+    def initialize(**kwargs)
+      super(**kwargs)
+      @patterns = [
+        '\b(?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(?<masklen>\d{1,2})\b'
+      ]
+      @on_matched = ->(m){
+        ipaddr = m[:ipaddr]
+        masklen = m[:masklen].to_i
+        if Resolv::IPv4::Regex =~ ipaddr && (0 <= masklen && masklen <= 32)
+          return @to
+        else
+          return substring
+        end
+      }
+    end
+  end
+
   class TextReplacer2
     def initialize
       @m = m

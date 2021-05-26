@@ -24,10 +24,17 @@ end
 
 require 'resolv'
 Maskman.add_type :exactipaddress do
-  add :Regexp do
-    pattern "\b#{Resolv::IPv4::Regex}\b"
-    to 'XXX.XXX.XXX.XXX'
-  end
+  # add :Regexp do
+  #   pattern '\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\{1,3}\b'
+  #   on_match ->(m){
+  #     substring = m[0]
+  #     if Resolv::IPv4::Regex =~ substring
+  #       return ""
+  #     end
+  #   }
+  #   pattern "\b#{}\b"
+  #   to 'XXX.XXX.XXX.XXX'
+  # end
   add :Regexp do
     pattern "\b#{Resolv::IPv4::Regex}/#{Resolv::IPv4::Regex}\b"
     to 'XXX.XXX.XXX.XXX/XXXX.XXXX.XXXX.XXXX'
