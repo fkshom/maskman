@@ -384,7 +384,6 @@ RSpec.describe Maskman do
     actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
-#-------------------------------------------------------------
 
   it "ネットワーク機器向けのサンプル3" do
     text = <<~EOS
