@@ -3,7 +3,7 @@ require 'maskman'
 
 RSpec.describe Maskman do
   describe Maskman::PlainTextPlugin do
-    fit "mask" do
+    it "PlainTextの単純置換ができる" do
       text = <<~EOS
       p@ssw0rd
       s3cr3t
@@ -30,7 +30,7 @@ RSpec.describe Maskman do
   end
 
   describe Maskman::RegexpPlugin do
-    it "mask" do
+    it "マッチしたパターン全体をtoで置換できる" do
       text = <<~EOS
       hostname retail
       EOS
@@ -47,7 +47,59 @@ RSpec.describe Maskman do
       expect(actual).to eq expect
     end
 
-    fit "mask4" do
+    it "マッチしたパターン全体を、名前付きキャプチャを利用したtoで置換できる" do
+      text = <<~EOS
+      address 192.168.0.1 is ok
+      EOS
+      expect = <<~EOS
+      this address is 192.168.0.1 desu.
+      EOS
+
+      inst = Maskman::RegexpPlugin.new
+      inst.instance_eval do
+        pattern 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok'
+        to 'this address is #{ipaddr} desu.'
+        ignore_case false
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+
+    it "パターンをignore_caseすることができる" do
+      text = <<~EOS
+      John Doe
+      EOS
+      expect = <<~EOS
+      ZZZZ
+      EOS
+      inst = Maskman::RegexpPlugin.new
+      inst.instance_eval do
+        patterns ["john doe"]
+        to "ZZZZ"
+        ignore_case true
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+
+    it "パターンをignore_caseしないことができる" do
+      text = <<~EOS
+      John Doe
+      EOS
+      expect = <<~EOS
+      John Doe
+      EOS
+      inst = Maskman::RegexpPlugin.new
+      inst.instance_eval do
+        patterns ["john doe"]
+        to "ZZZZ"
+        ignore_case false
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+
+    it "マッチしたパターンに対してMatchDataを使った高度な置換ができる" do
       text = <<~EOS
       hostname retail
       EOS
@@ -55,7 +107,7 @@ RSpec.describe Maskman do
       hostname rXXXXX
       EOS
       
-      inst = Maskman::Regexp4Plugin.new
+      inst = Maskman::RegexpPlugin.new
       inst.instance_eval do
         pattern "hostname (?<hostname>.+)"
         on_matched ->(m){
@@ -68,7 +120,7 @@ RSpec.describe Maskman do
       expect(actual).to eq expect
     end
 
-    fit "mask4a" do
+    it "マッチしたパターンの特定の名前付きキャプチャに対してon_matched_<name>で置換できる" do
       text = <<~EOS
       hostname retail
       EOS
@@ -76,18 +128,18 @@ RSpec.describe Maskman do
       hostname rXXXXX
       EOS
       
-      inst = Maskman::Regexp4Plugin.new
+      inst = Maskman::RegexpPlugin.new
       inst.instance_eval do
         pattern "hostname (?<hostname>.+)"
         on_matched_hostname ->(m){
-          "rXXXXXX"
+          "rXXXXX"
         }
       end
       actual = inst.mask text
       expect(actual).to eq expect
     end
 
-    it "mask" do
+    it "マッチしたパターンの特定の名前付きキャプチャ群(targets)に対してtoで単純置換できる" do
       text = <<~EOS
       enable password cisco123
       !
@@ -114,7 +166,7 @@ RSpec.describe Maskman do
         description XXXXXX
         ip address 192.168.12.2 255.255.255.0
       EOS
-      inst = Maskman::Regexp3Plugin.new
+      inst = Maskman::RegexpPlugin.new
       inst.instance_eval do
         patterns [
           '^enable password (?<pass>.+)',
@@ -130,7 +182,37 @@ RSpec.describe Maskman do
     end
   end
 
-
+  describe Maskman::RegexpIncrementalPlugin do
+    it "名前付きキャプチャをキーとしたIDを生成・利用できる" do
+      text = <<~EOS
+      filter MyFilter {
+      filter YourFilter {
+      filter OurFilter {
+      use MyFilter
+      EOS
+      expect = <<~EOS
+      filter FILTERNAME1 {
+      filter FILTERNAME2 {
+      filter FILTERNAME3 {
+      use FILTERNAME1
+      EOS
+      
+      inst = Maskman::RegexpIncrementalPlugin.new
+      inst.instance_eval do
+        patterns [
+          '(?<pre>filter )(?<filtername>\w+)(?<post>.*)',
+          '(?<pre>use )(?<filtername>\w+)(?<post>.*)'
+        ]
+        ignore_case false
+        incremental_suffix_target 'filtername'
+        on_matched ->(m, inc){
+          "#{m[:pre]}FILTERNAME#{inc}#{m[:post]}"
+        }
+      end
+      actual = inst.mask text
+      expect(actual).to eq expect
+    end
+  end
 end
 
 RSpec.describe Maskman do
@@ -138,19 +220,14 @@ RSpec.describe Maskman do
     Maskman.clear_mask_types
   end
 
-  it "mask" do
-    text = <<~EOS
-    address 192.168.0.1 is ok
-    EOS
-    expect = <<~EOS
-    address XXX.XXX.XXX.XXX is ok
-    EOS
+  it "add_typeが動く" do
+    text = "address 192.168.0.1 is ok"
+    expect = "address XXX.XXX.XXX.XXX is ok"
 
     Maskman.add_type :common do
       add :Regexp do
         pattern '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
         to 'XXX.XXX.XXX.XXX'
-        ignore_case false
       end
     end
 
@@ -159,59 +236,7 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
 
-  it "mask" do
-    text = <<~EOS
-    address 192.168.0.1 is ok
-    192.168.1.1 is ng
-    EOS
-    expect = <<~EOS
-    address XXX.XXX.XXX.XXX is ok
-    192.168.1.1 is ng
-    EOS
-
-    Maskman.add_type :common do
-      add :Regexp2 do
-        pattern '(?<pre>address )(?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?<post> is ok)'
-        ignore_case false
-        on_matched ->(substring, m){
-            "#{m[:pre]}XXX.XXX.XXX.XXX#{m[:post]}"
-        }
-      end
-      # add :Regexp3 do
-      #   pattern 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok'
-      #   target :ipaddr
-      #   to 'XXX.XXX.XXX.XXX'
-      #   ignore_case false
-      # end
-    end
-
-    maskman = Maskman::Maskman.new
-    actual = maskman.mask(text, type: :common)
-    expect(actual).to eq expect
-  end
-
-  it "mask" do
-    text = <<~EOS
-    address 192.168.0.1 is ok
-    EOS
-    expect = <<~EOS
-    this address is 192.168.0.1 desu.
-    EOS
-    
-    Maskman.add_type :common do
-      add :Regexp do
-        pattern 'address (?<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) is ok'
-        to 'this address is \k<ipaddr> desu.'
-        ignore_case false
-      end
-    end
-
-    maskman = Maskman::Maskman.new
-    actual = maskman.mask(text, type: :common)
-    expect(actual).to eq expect
-  end
-
-  it "mask" do
+  it "addが複数可能" do
     text = <<~EOS
     ipaddr:       192.168.0.1
     netmask:      255.255.255.0
@@ -241,36 +266,33 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
 
-  it "mask" do
+  it "複数のadd_typeと、type切り替え、include_typeが可能" do
     text = <<~EOS
     ProjectName: ProjectX
-    Director: John Smith
-    Actor: Jane Smith
-    Designer: John Doe
+    ipaddr:       192.168.0.1
     EOS
     expect = <<~EOS
     ProjectName: XXXXXXXX
-    Director: XXXXXXXX
-    Actor: YYYYYYY
-    Designer: John Doe
+    ipaddr: XXX.XXX.XXX.XXX
     EOS
-
-    Maskman.add_type :common do
+    Maskman.add_type :term do
       add :Regexp do
-        patterns ["ProjectX", "John Smith"]
+        patterns ["ProjectX"]
         to "XXXXXXXX"
         ignore_case true
       end
+    end
+    Maskman.add_type :ipaddress do
       add :Regexp do
-        patterns ["Jane Smith"]
-        to "YYYYYYY"
-        ignore_case true
-      end
-      add :Regexp do
-        patterns ["john doe"]
-        to "ZZZZ"
+        pattern 'ipaddr: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+        to 'ipaddr: XXX.XXX.XXX.XXX'
+        space_has_any_length true
         ignore_case false
       end
+    end
+    Maskman.add_type :common do
+      include_type :term
+      include_type :ipaddress
     end
 
     maskman = Maskman::Maskman.new
@@ -278,7 +300,7 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
   
-  it "mask" do
+  it "ネットワーク機器向けのサンプル1" do
     text = <<~EOS
     filter MyFilter {
       term MyTerm {
@@ -312,17 +334,35 @@ RSpec.describe Maskman do
     expect(actual).to eq expect
   end
 
-  it "mask" do
+  it "ネットワーク機器向けのサンプル2" do
     text = <<~EOS
     filter MyFilter {
+      term TERM-A {
+      }
+    }
     filter YourFilter {
+      term TERM-B {
+      }
+    }
     filter OurFilter {
+      term TERM-C {
+      }
+    }
     use MyFilter
     EOS
     expect = <<~EOS
     filter FILTERNAME1 {
+      term TERM-A {
+      }
+    }
     filter FILTERNAME2 {
+      term TERM-B {
+      }
+    }
     filter FILTERNAME3 {
+      term TERM-C {
+      }
+    }
     use FILTERNAME1
     EOS
     
@@ -344,8 +384,9 @@ RSpec.describe Maskman do
     actual = maskman.mask(text, type: :common)
     expect(actual).to eq expect
   end
+#-------------------------------------------------------------
 
-  it "mask" do
+  it "ネットワーク機器向けのサンプル3" do
     text = <<~EOS
     Router# show running-config
     Building configuration...
@@ -372,8 +413,8 @@ RSpec.describe Maskman do
       description To Server002
       ip address 192.168.12.2 255.255.255.0
     !
-    user jsomeone nthash 7 0529575803696F2C492143375828267C7A760E1113734624452725707C010B065B
-    user AMER\jsomeone nthash 7 0224550C29232E041C6A5D3C5633305D5D560C09027966167137233026580E0B0D
+    user jsomeone nthash 7 1234567890
+    user AMER\jsomeone nthash 7 12345678901234567890
     !
     radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key cisco123
     EOS
@@ -392,21 +433,57 @@ RSpec.describe Maskman do
     !
     enable password XXXXXX
     !
-    username jsomeone password 0 XXXXXX
+    username XXXXXX password 0 XXXXXX
     aaa new-model
     !
     interface FastEthernet1
-      description YYYYYY
+      description XXXXXX
       ip address 192.168.12.1 255.255.255.0
     !
     interface FastEthernet2
-      description YYYYYY
+      description XXXXXX
       ip address 192.168.12.2 255.255.255.0
     !
-    user USER nthash 7 ABCDABCD
-    user USER nthash 7 ABCDABCD
+    user jXXXXXXX nthash 7 XXXXXXXXXX
+    user AXXXXXXXXXXX nthash 7 XXXXXXXXXXXXXXXXXXXX
     !
-    radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key KEY
+    radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key XXXXXX
     EOS
+    
+    Maskman.add_type :common do
+      add :Regexp do
+        pattern 'hostname (?<MASK>.+)'
+        targets [:MASK]
+        to 'HOSTNAME'
+      end
+      add :Regexp do
+        patterns [
+          'user (?<USER>.+) nthash 7 (?<PASS>.+)'
+        ]
+        on_matched_USER ->(m){
+          matched_string = m[:USER]
+          first_char, past_chars = matched_string[0], matched_string[1..-1]
+          first_char + 'X' * past_chars.length
+        }
+        on_matched_PASS ->(m){
+          matched_string = m[:PASS]
+          'X' * matched_string.length
+        }
+      end
+      add :Regexp do
+        patterns [
+          'enable password (?<MASK>.+)',
+          'username (?<MASK>.+) password \d (?<MASK1>.+)',
+          '  description (?<MASK>.+)',
+          'radius-server host 10.0.1.1 auth-port 1812 acct-port 1813 key (?<MASK>.+)'
+        ]
+        targets [:MASK, :MASK1]
+        to 'XXXXXX'
+      end
+    end
+
+    maskman = Maskman::Maskman.new
+    actual = maskman.mask(text, type: :common)
+    expect(actual).to eq expect
   end
 end

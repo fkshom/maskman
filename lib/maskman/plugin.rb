@@ -49,6 +49,7 @@ module Maskman
     end
   end
   
+  
   class RegexpPlugin < PlainTextPlugin
     def ignore_case(val)
       @ignore_case = val
@@ -57,14 +58,60 @@ module Maskman
     def space_has_any_length(val)
       @space_has_any_length = val
     end
+
+    def targets(val)
+      @on_matched_ ||= {}
+      [val].flatten.each{|target|
+        @on_matched_[target.to_s] = ->(m){
+          @to
+        }
+      }
+    end
+
+    def method_missing(name, *blk)
+      @on_matched_ ||= {}
+      if name =~ %r"on_matched_(.+)"
+        target = $1
+        @on_matched_[target] = blk.first
+      end
+    end
     
+    def on_matched(val)
+      @on_matched = val
+    end
+
     def mask(text)
+      @on_matched_ ||= {}
       @patterns.each{|pattern|
-        ignore_case = @ignore_case ? Regexp::IGNORECASE : nil
-        if @space_has_any_length
-          pattern = pattern.gsub(" ", '\s+')
-        end
-        text = text.gsub(Regexp.new(pattern, ignore_case), @to)
+        option = @ignore_case ? Regexp::IGNORECASE : nil
+        pattern = pattern.gsub(" ", '\s+') if @space_has_any_length
+        text = text.gsub(Regexp.new(pattern, option)){|_|
+          m = Regexp.last_match
+          substring = m[0]
+          mm = Regexp.new(pattern).match(substring)
+          if @on_matched
+            substring = @on_matched.call(mm)
+          end
+
+          unless @on_matched_ == {}
+            mm.names.reverse.each{|target|
+              if @on_matched_.key?(target)
+                replaced = @on_matched_[target].call(mm)
+                substring = TextReplacer.replace(substring, mm, target, replaced)
+              end
+            }
+          end
+
+          if @on_matched.nil? and @on_matched_ == {}
+            m = Regexp.new(pattern, option).match(substring)
+            bind = binding
+            m.names.each{|name|
+              bind.local_variable_set(name.to_sym, m[name])
+            }
+            substring = bind.eval('"' + @to + '"')
+          end
+          substring
+        }
       }
       text
     end
@@ -108,96 +155,6 @@ module Maskman
   end
 
   
-  class Regexp2Plugin < RegexpPlugin
-    def ignore_case(val)
-      @ignore_case = val
-    end
-
-    def space_has_any_length(val)
-      @space_has_any_length = val
-    end
-    
-    def on_matched(proc)
-      @on_matched = proc
-    end
-
-    def mask(text)
-      @patterns.each{|pattern|
-        regexpopt = @ignore_case ? Regexp::IGNORECASE : nil
-        text = text.gsub(Regexp.new(pattern, regexpopt)){|_|
-          m = Regexp.last_match
-          substring = m[0]
-          mm = Regexp.new(pattern).match(substring)
-          replace = @on_matched.call(substring, mm)
-          replace
-        }
-      }
-      text
-    end
-  end
-
-  
-  class Regexp3Plugin < RegexpPlugin
-    def targets(val)
-      @targets ||= []
-      case val
-      when Array
-        @targets += val
-      when String, Regexp, Integer
-        @targets << val
-      else
-        raise "target class #{val.class} is not supported"
-      end
-      self
-    end
-
-    def mask(text)
-      @patterns.each{|pattern|
-        text = text.gsub(Regexp.new(pattern)){|_|
-          m = Regexp.last_match
-          substring = m[0]
-          mm = Regexp.new(pattern).match(substring)
-          @targets.each{|target|
-            if mm.names.include?(target.to_s)
-              substring = TextReplacer.replace(substring, mm, target, @to)
-            end
-          }
-          substring
-        }
-      }
-      text
-    end
-  end
-
-  class Regexp4Plugin < RegexpPlugin
-    def targets(val)
-      @targets ||= []
-      case val
-      when Array
-        @targets += val
-      when String, Regexp, Integer
-        @targets << val
-      else
-        raise "target class #{val.class} is not supported"
-      end
-      self
-    end
-
-    def on_matched(val)
-      @on_matched = val
-    end
-
-    def mask(text)
-      @patterns.each{|pattern|
-        text = text.gsub(Regexp.new(pattern)){|_|
-          m = Regexp.last_match
-          @on_matched.call(m)
-        }
-      }
-      text
-    end
-  end
-
   class TextReplacer2
     def initialize
       @m = m
@@ -218,7 +175,7 @@ module Maskman
     def self.replace(text, m, n_or_key, replacer)
       b = m.begin(n_or_key)
       e = m.end(n_or_key)
-      text[b..e] = replacer
+      text[b...e] = replacer
       text
     end
   end
